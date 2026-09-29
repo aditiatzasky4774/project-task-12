@@ -10,10 +10,6 @@ export default function ProfilePage() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    getProfileData();
-  }, []);
-
   const getProfileData = async () => {
     setLoading(true);
 
@@ -41,6 +37,10 @@ export default function ProfilePage() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    getProfileData();
+  }, []);
+
   const myRequests = requests.filter(
     (request) => request.user_id === user?.id
   );
@@ -53,7 +53,6 @@ export default function ProfilePage() {
     (request) =>
       request.helper_id === user?.id && request.status === "selesai"
   );
-
   if (loading) {
     return (
       <>
