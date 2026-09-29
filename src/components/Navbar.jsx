@@ -15,88 +15,99 @@ export default function Navbar() {
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
-    let notificationChannel;
+  let notificationChannel = null;
 
-    const getUserAndNotifications = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      setUser(user);
-
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      setNotifications(data || []);
-
-      notificationChannel = supabase
-  .channel(`notifications-${user.id}`)
-  .on(
-    "postgres_changes",
-    {
-      event: "INSERT",
-      schema: "public",
-      table: "notifications",
-    },
-    (payload) => {
-      if (payload.new.user_id === user.id) {
-        setNotifications((current) => [
-          payload.new,
-          ...current,
-        ]);
-      }
-    }
-  )
-  .subscribe();
-    };
-
-    getUserAndNotifications();
-
+  const getUserAndNotifications = async () => {
     const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    setUser(user);
+
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    setNotifications(data || []);
+
+    // Realtime sementara dimatikan untuk memastikan Navbar bisa compile
+    notificationChannel = supabase.channel(
+      `notifications-${user.id}`
+    );
+
+    notificationChannel.subscribe((status) => {
+      console.log("Status realtime:", status);
     });
+  };
 
-    return () => {
-      subscription.unsubscribe();
+  getUserAndNotifications();
 
-      if (notificationChannel) {
-        supabase.removeChannel(notificationChannel);
-      }
-    };
-  }, []);
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user || null);
+  });
 
+  return () => {
+    subscription.unsubscribe();
+
+    if (notificationChannel) {
+      supabase.removeChannel(notificationChannel);
+    }
+  };
+}, []);
+
+  // ================================
+  // LOGOUT
+  // ================================
   const handleLogout = async () => {
     await supabase.auth.signOut();
 
     setUser(null);
     setNotifications([]);
     setShowMenu(false);
+    setShowNotifications(false);
 
     router.push("/login");
   };
 
+  // ================================
+  // JUMLAH NOTIFIKASI BELUM DIBACA
+  // ================================
   const unreadCount = notifications.filter(
     (notification) => !notification.is_read
   ).length;
 
+  // ================================
+  // KLIK NOTIFIKASI
+  // ================================
   const markAsRead = async (notification) => {
     if (!notification.is_read) {
-      await supabase
+      const { error } = await supabase
         .from("notifications")
-        .update({ is_read: true })
+        .update({
+          is_read: true,
+        })
         .eq("id", notification.id);
+
+      if (error) {
+        console.error(
+          "Error menandai notifikasi:",
+          error
+        );
+      }
 
       setNotifications((current) =>
         current.map((item) =>
           item.id === notification.id
-            ? { ...item, is_read: true }
+            ? {
+                ...item,
+                is_read: true,
+              }
             : item
         )
       );
@@ -104,19 +115,37 @@ export default function Navbar() {
 
     setShowNotifications(false);
 
+    // Buka detail bantuan
     if (notification.request_id) {
-      router.push(`/bantuan/${notification.request_id}`);
+      router.push(
+        `/bantuan/${notification.request_id}`
+      );
     }
   };
 
+  // ================================
+  // TANDAI SEMUA SUDAH DIBACA
+  // ================================
   const markAllAsRead = async () => {
-    if (!user || unreadCount === 0) return;
+    if (!user || unreadCount === 0) {
+      return;
+    }
 
-    await supabase
+    const { error } = await supabase
       .from("notifications")
-      .update({ is_read: true })
+      .update({
+        is_read: true,
+      })
       .eq("user_id", user.id)
       .eq("is_read", false);
+
+    if (error) {
+      console.error(
+        "Error menandai semua notifikasi:",
+        error
+      );
+      return;
+    }
 
     setNotifications((current) =>
       current.map((item) => ({
@@ -126,31 +155,50 @@ export default function Navbar() {
     );
   };
 
-  const isActive = (path) => pathname === path;
+  // ================================
+  // CEK MENU AKTIF
+  // ================================
+  const isActive = (path) => {
+    return pathname === path;
+  };
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
 
-        {/* LOGO */}
+        {/* ================================
+            LOGO
+        ================================= */}
         <Link
           href="/dashboard"
-          className="text-xl font-bold whitespace-nowrap"
-          onClick={() => setShowMenu(false)}
+          className="flex items-center gap-2"
         >
-          <span className="text-blue-600">Warga</span>
-          <span className="text-green-600"> Bantu</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-xl text-white">
+            🤝
+          </div>
+
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">
+              Warga Bantu
+            </h1>
+
+            <p className="text-xs text-gray-500">
+              Papan Bantuan Warga
+            </p>
+          </div>
         </Link>
 
-        {/* DESKTOP MENU */}
+        {/* ================================
+            DESKTOP MENU
+        ================================= */}
         <div className="hidden items-center gap-6 md:flex">
 
           <Link
             href="/dashboard"
             className={`text-sm font-medium transition ${
               isActive("/dashboard")
-                ? "text-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                ? "text-green-600"
+                : "text-gray-600 hover:text-green-600"
             }`}
           >
             Dashboard
@@ -160,8 +208,8 @@ export default function Navbar() {
             href="/minta-bantu"
             className={`text-sm font-medium transition ${
               isActive("/minta-bantu")
-                ? "text-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                ? "text-green-600"
+                : "text-gray-600 hover:text-green-600"
             }`}
           >
             Minta Bantuan
@@ -171,8 +219,8 @@ export default function Navbar() {
             href="/bantuan-saya"
             className={`text-sm font-medium transition ${
               isActive("/bantuan-saya")
-                ? "text-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                ? "text-green-600"
+                : "text-gray-600 hover:text-green-600"
             }`}
           >
             Bantuan Saya
@@ -182,96 +230,108 @@ export default function Navbar() {
             href="/profil"
             className={`text-sm font-medium transition ${
               isActive("/profil")
-                ? "text-blue-600"
-                : "text-gray-600 hover:text-blue-600"
+                ? "text-green-600"
+                : "text-gray-600 hover:text-green-600"
             }`}
           >
             Profil
           </Link>
 
-          {/* NOTIFICATION */}
-          <div className="relative">
-            <button
-              onClick={() =>
-                setShowNotifications(!showNotifications)
-              }
-              className="relative rounded-full p-2 text-xl transition hover:bg-gray-100"
-              aria-label="Notifikasi"
-            >
-              🔔
-
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {showNotifications && (
-              <NotificationDropdown
-                notifications={notifications}
-                unreadCount={unreadCount}
-                onRead={markAsRead}
-                onMarkAll={markAllAsRead}
-              />
-            )}
-          </div>
-
-          {/* LOGOUT */}
+          {/* ================================
+              NOTIFIKASI
+          ================================= */}
           {user && (
-            <button
-              onClick={handleLogout}
-              className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-600"
-            >
-              Logout
-            </button>
+            <div className="relative">
+              <button
+                onClick={() =>
+                  setShowNotifications(
+                    !showNotifications
+                  )
+                }
+                className="relative flex h-10 w-10 items-center justify-center rounded-full text-xl hover:bg-gray-100"
+              >
+                🔔
+
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                    {unreadCount > 9
+                      ? "9+"
+                      : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <NotificationDropdown
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  markAsRead={markAsRead}
+                  markAllAsRead={markAllAsRead}
+                />
+              )}
+            </div>
+          )}
+
+          {/* ================================
+              USER
+          ================================= */}
+          {user ? (
+            <div className="flex items-center gap-3 border-l border-gray-200 pl-5">
+
+              <div className="hidden text-right lg:block">
+                <p className="text-sm font-medium text-gray-800">
+                  {user.email}
+                </p>
+
+                <p className="text-xs text-gray-500">
+                  Pengguna
+                </p>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-100"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+
+              <Link
+                href="/login"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              >
+                Login
+              </Link>
+
+              <Link
+                href="/register"
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+              >
+                Daftar
+              </Link>
+
+            </div>
           )}
         </div>
 
-        {/* MOBILE RIGHT */}
-        <div className="flex items-center gap-2 md:hidden">
-
-          {/* MOBILE NOTIFICATION */}
-          <div className="relative">
-            <button
-              onClick={() =>
-                setShowNotifications(!showNotifications)
-              }
-              className="relative rounded-full p-2 text-xl hover:bg-gray-100"
-              aria-label="Notifikasi"
-            >
-              🔔
-
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {showNotifications && (
-              <NotificationDropdown
-                notifications={notifications}
-                unreadCount={unreadCount}
-                onRead={markAsRead}
-                onMarkAll={markAllAsRead}
-                mobile
-              />
-            )}
-          </div>
-
-          {/* HAMBURGER */}
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="rounded-lg p-2 text-2xl text-gray-700 hover:bg-gray-100"
-            aria-label="Buka menu"
-          >
-            {showMenu ? "✕" : "☰"}
-          </button>
-        </div>
+        {/* ================================
+            MOBILE BUTTON
+        ================================= */}
+        <button
+          onClick={() =>
+            setShowMenu(!showMenu)
+          }
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-2xl hover:bg-gray-100 md:hidden"
+        >
+          {showMenu ? "✕" : "☰"}
+        </button>
       </div>
 
-      {/* MOBILE MENU */}
+      {/* ================================
+          MOBILE MENU
+      ================================= */}
       {showMenu && (
         <div className="border-t border-gray-200 bg-white px-4 py-4 md:hidden">
 
@@ -279,59 +339,113 @@ export default function Navbar() {
 
             <Link
               href="/dashboard"
-              onClick={() => setShowMenu(false)}
-              className={`rounded-lg px-4 py-3 font-medium ${
+              onClick={() =>
+                setShowMenu(false)
+              }
+              className={`rounded-lg px-4 py-3 text-sm font-medium ${
                 isActive("/dashboard")
-                  ? "bg-blue-50 text-blue-600"
+                  ? "bg-green-50 text-green-600"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
-              🏠 Dashboard
+              Dashboard
             </Link>
 
             <Link
               href="/minta-bantu"
-              onClick={() => setShowMenu(false)}
-              className={`rounded-lg px-4 py-3 font-medium ${
+              onClick={() =>
+                setShowMenu(false)
+              }
+              className={`rounded-lg px-4 py-3 text-sm font-medium ${
                 isActive("/minta-bantu")
-                  ? "bg-blue-50 text-blue-600"
+                  ? "bg-green-50 text-green-600"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
-              🙏 Minta Bantuan
+              Minta Bantuan
             </Link>
 
             <Link
               href="/bantuan-saya"
-              onClick={() => setShowMenu(false)}
-              className={`rounded-lg px-4 py-3 font-medium ${
+              onClick={() =>
+                setShowMenu(false)
+              }
+              className={`rounded-lg px-4 py-3 text-sm font-medium ${
                 isActive("/bantuan-saya")
-                  ? "bg-blue-50 text-blue-600"
+                  ? "bg-green-50 text-green-600"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
-              🤝 Bantuan Saya
+              Bantuan Saya
             </Link>
 
             <Link
               href="/profil"
-              onClick={() => setShowMenu(false)}
-              className={`rounded-lg px-4 py-3 font-medium ${
+              onClick={() =>
+                setShowMenu(false)
+              }
+              className={`rounded-lg px-4 py-3 text-sm font-medium ${
                 isActive("/profil")
-                  ? "bg-blue-50 text-blue-600"
+                  ? "bg-green-50 text-green-600"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
-              👤 Profil
+              Profil
             </Link>
 
+            {/* MOBILE NOTIFICATION */}
             {user && (
               <button
-                onClick={handleLogout}
-                className="mt-2 rounded-lg bg-red-500 px-4 py-3 font-medium text-white hover:bg-red-600"
+                onClick={() =>
+                  setShowNotifications(
+                    !showNotifications
+                  )
+                }
+                className="flex items-center justify-between rounded-lg px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                🚪 Logout
+                <span>
+                  🔔 Notifikasi
+                </span>
+
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
+            )}
+
+            <div className="my-2 border-t border-gray-200"></div>
+
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="rounded-lg bg-red-50 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-100"
+              >
+                Logout
+              </button>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() =>
+                    setShowMenu(false)
+                  }
+                  className="rounded-lg px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Login
+                </Link>
+
+                <Link
+                  href="/register"
+                  onClick={() =>
+                    setShowMenu(false)
+                  }
+                  className="rounded-lg bg-green-600 px-4 py-3 text-center text-sm font-medium text-white hover:bg-green-700"
+                >
+                  Daftar
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -340,89 +454,133 @@ export default function Navbar() {
   );
 }
 
-
-/* ================================
+/* =====================================================
    NOTIFICATION DROPDOWN
-================================ */
+===================================================== */
 
 function NotificationDropdown({
   notifications,
   unreadCount,
-  onRead,
-  onMarkAll,
-  mobile = false,
+  markAsRead,
+  markAllAsRead,
 }) {
   return (
-    <div
-      className={`
-        absolute top-12 z-50 w-[calc(100vw-32px)] max-w-sm
-        overflow-hidden rounded-xl border border-gray-200
-        bg-white shadow-xl
-        ${mobile ? "right-0" : "right-0"}
-      `}
-    >
+    <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+
       {/* HEADER */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <h3 className="font-semibold text-gray-800">
-          Notifikasi
-        </h3>
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+
+        <div>
+          <h3 className="font-semibold text-gray-900">
+            Notifikasi
+          </h3>
+
+          <p className="text-xs text-gray-500">
+            {unreadCount > 0
+              ? `${unreadCount} belum dibaca`
+              : "Semua sudah dibaca"}
+          </p>
+        </div>
 
         {unreadCount > 0 && (
           <button
-            onClick={onMarkAll}
-            className="text-xs font-medium text-blue-600 hover:text-blue-800"
+            onClick={markAllAsRead}
+            className="text-xs font-medium text-green-600 hover:text-green-700"
           >
             Tandai semua
           </button>
         )}
       </div>
 
-      {/* CONTENT */}
-      <div className="max-h-80 overflow-y-auto">
+      {/* LIST */}
+      <div className="max-h-96 overflow-y-auto">
 
         {notifications.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-gray-500">
-            Belum ada notifikasi.
+          <div className="px-4 py-8 text-center">
+
+            <div className="mb-2 text-3xl">
+              🔔
+            </div>
+
+            <p className="text-sm font-medium text-gray-700">
+              Belum ada notifikasi
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Notifikasi baru akan muncul di sini.
+            </p>
+
           </div>
         ) : (
-          notifications.map((notification) => (
-            <button
-              key={notification.id}
-              onClick={() => onRead(notification)}
-              className={`w-full border-b px-4 py-3 text-left transition hover:bg-gray-50 ${
-                !notification.is_read
-                  ? "bg-blue-50"
-                  : "bg-white"
-              }`}
-            >
-              <div className="flex gap-3">
+          notifications.map(
+            (notification) => (
+              <button
+                key={notification.id}
+                onClick={() =>
+                  markAsRead(notification)
+                }
+                className={`w-full border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50 ${
+                  !notification.is_read
+                    ? "bg-green-50"
+                    : "bg-white"
+                }`}
+              >
 
-                <div className="mt-1 text-lg">
-                  {notification.type === "help_taken"
-                    ? "🤝"
-                    : "✅"}
+                <div className="flex gap-3">
+
+                  {/* ICON */}
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100">
+                    {notification.type ===
+                    "bantuan"
+                      ? "🤝"
+                      : notification.type ===
+                        "selesai"
+                      ? "✅"
+                      : "🔔"}
+                  </div>
+
+                  {/* CONTENT */}
+                  <div className="min-w-0 flex-1">
+
+                    <div className="flex items-start justify-between gap-2">
+
+                      <h4
+                        className={`text-sm ${
+                          !notification.is_read
+                            ? "font-semibold text-gray-900"
+                            : "font-medium text-gray-700"
+                        }`}
+                      >
+                        {notification.title ||
+                          "Notifikasi"}
+                      </h4>
+
+                      {!notification.is_read && (
+                        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-green-600"></span>
+                      )}
+                    </div>
+
+                    <p className="mt-1 text-xs leading-5 text-gray-600">
+                      {notification.message ||
+                        "Ada notifikasi baru."}
+                    </p>
+
+                    {notification.created_at && (
+                      <p className="mt-1 text-[11px] text-gray-400">
+                        {new Date(
+                          notification.created_at
+                        ).toLocaleString(
+                          "id-ID"
+                        )}
+                      </p>
+                    )}
+
+                  </div>
                 </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-800">
-                    {notification.title}
-                  </p>
-
-                  <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                    {notification.message}
-                  </p>
-
-                  {!notification.is_read && (
-                    <span className="mt-2 inline-block text-[10px] font-semibold text-blue-600">
-                      BELUM DIBACA
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))
+              </button>
+            )
+          )
         )}
-
       </div>
     </div>
   );
