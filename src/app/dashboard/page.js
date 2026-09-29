@@ -1,23 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
   const [message, setMessage] = useState("");
-
-  // Filter kategori
   const [selectedCategory, setSelectedCategory] = useState("Semua");
-
-  // Pencarian
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Daftar kategori
   const categories = [
     "Semua",
     "Medis & Darurat",
@@ -27,7 +25,29 @@ export default function DashboardPage() {
   ];
 
   // ==========================================
-  // MENGAMBIL DATA BANTUAN
+  // CEK LOGIN
+  // ==========================================
+  useEffect(() => {
+    const checkUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // Jika belum login
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      // Jika sudah login
+      getRequests();
+    };
+
+    checkUser();
+  }, [router]);
+
+  // ==========================================
+  // AMBIL DATA BANTUAN
   // ==========================================
   const getRequests = async () => {
     setLoading(true);
@@ -38,43 +58,48 @@ export default function DashboardPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Gagal mengambil data:", error);
+      console.error("Error mengambil data:", error);
+
       setMessage("Gagal mengambil data bantuan.");
-    } else {
-      setRequests(data || []);
+
+      setLoading(false);
+
+      return;
     }
+
+    setRequests(data || []);
 
     setLoading(false);
   };
-
-  useEffect(() => {
-    getRequests();
-  }, []);
 
   // ==========================================
   // HAPUS BANTUAN
   // ==========================================
   const handleDelete = async (id) => {
-    const yakin = window.confirm(
-      "Apakah kamu yakin ingin menghapus permintaan bantuan ini?"
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // Jika user belum login
+    if (!user) {
+      setMessage("Silakan login terlebih dahulu.");
+
+      router.replace("/login");
+
+      return;
+    }
+
+    // Konfirmasi hapus
+    const confirmDelete = window.confirm(
+      "Apakah kamu yakin ingin menghapus bantuan ini?"
     );
 
-    if (!yakin) {
+    if (!confirmDelete) {
       return;
     }
 
     setDeletingId(id);
     setMessage("");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setMessage("Silakan login terlebih dahulu.");
-      setDeletingId(null);
-      return;
-    }
 
     const { error } = await supabase
       .from("help_requests")
@@ -83,35 +108,41 @@ export default function DashboardPage() {
       .eq("user_id", user.id);
 
     if (error) {
-      console.error("Gagal menghapus:", error);
-      setMessage("Gagal menghapus permintaan bantuan.");
-    } else {
-      setRequests((prevRequests) =>
-        prevRequests.filter((request) => request.id !== id)
-      );
+      console.error("Error menghapus:", error);
 
-      setMessage("Permintaan bantuan berhasil dihapus.");
+      setMessage("Gagal menghapus bantuan.");
+
+      setDeletingId(null);
+
+      return;
     }
+
+    // Hapus dari tampilan tanpa reload
+    setRequests((prev) =>
+      prev.filter((item) => item.id !== id)
+    );
+
+    setMessage("Bantuan berhasil dihapus.");
 
     setDeletingId(null);
   };
 
   // ==========================================
-  // FILTER KATEGORI + SEARCH
+  // FILTER DATA
   // ==========================================
   const filteredRequests = requests.filter((request) => {
-    const categoryMatch =
+    const matchCategory =
       selectedCategory === "Semua" ||
       request.category === selectedCategory;
 
-    const search = searchTerm.toLowerCase().trim();
+    const search = searchTerm.toLowerCase();
 
-    const searchMatch =
+    const matchSearch =
       request.title?.toLowerCase().includes(search) ||
       request.description?.toLowerCase().includes(search) ||
       request.location?.toLowerCase().includes(search);
 
-    return categoryMatch && searchMatch;
+    return matchCategory && matchSearch;
   });
 
   // ==========================================
@@ -123,294 +154,350 @@ export default function DashboardPage() {
     (request) => request.status === "menunggu"
   ).length;
 
-  const helpedRequests = requests.filter(
-    (request) => request.status === "dibantu"
+  const helpingRequests = requests.filter(
+    (request) =>
+      request.status === "dibantu" ||
+      request.status === "selesai"
   ).length;
 
-  const completedRequests = requests.filter(
-    (request) => request.status === "selesai"
-  ).length;
+  // ==========================================
+  // LOADING
+  // ==========================================
+  if (loading) {
+    return (
+      <>
+        <Navbar />
 
+        <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+
+            <p className="text-gray-600">
+              Memeriksa login dan memuat data...
+            </p>
+
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  // ==========================================
+  // DASHBOARD
+  // ==========================================
   return (
     <>
       <Navbar />
 
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-3 py-6 sm:px-4 sm:py-8">
-        <div className="mx-auto max-w-6xl">
+      <main className="min-h-screen bg-gray-50">
 
-          {/* ==========================================
+        <div className="max-w-7xl mx-auto px-4 py-8">
+
+          {/* =====================================
               HEADER
-          ========================================== */}
-          <div className="mb-6 sm:mb-8">
-            <h1 className="text-2xl font-bold text-blue-900 sm:text-3xl">
-              Dashboard Bantuan
-            </h1>
+          ====================================== */}
 
-            <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:text-base">
-              Lihat dan bantu permintaan bantuan dari warga.
-            </p>
-          </div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
 
-          {/* ==========================================
-              STATISTIK
-          ========================================== */}
-          <div className="mb-6 grid grid-cols-1 gap-3 sm:mb-8 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+            <div>
 
-            {/* TOTAL */}
-            <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex items-center justify-between gap-3">
+              <h1 className="text-3xl font-bold text-gray-800">
+                Dashboard Bantuan Warga
+              </h1>
 
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-gray-500 sm:text-sm">
-                    Total Bantuan
-                  </p>
+              <p className="text-gray-600 mt-2">
+                Temukan dan bantu warga yang membutuhkan.
+              </p>
 
-                  <p className="mt-1 text-2xl font-bold text-blue-700 sm:mt-2 sm:text-3xl">
-                    {totalRequests}
-                  </p>
-                </div>
-
-                <div className="shrink-0 rounded-xl bg-blue-100 p-2.5 text-xl sm:p-3 sm:text-2xl">
-                  📋
-                </div>
-
-              </div>
             </div>
 
-            {/* MENUNGGU */}
-            <div className="rounded-2xl border border-yellow-100 bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex items-center justify-between gap-3">
-
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-gray-500 sm:text-sm">
-                    Menunggu
-                  </p>
-
-                  <p className="mt-1 text-2xl font-bold text-yellow-600 sm:mt-2 sm:text-3xl">
-                    {waitingRequests}
-                  </p>
-                </div>
-
-                <div className="shrink-0 rounded-xl bg-yellow-100 p-2.5 text-xl sm:p-3 sm:text-2xl">
-                  ⏳
-                </div>
-
-              </div>
-            </div>
-
-            {/* DIBANTU */}
-            <div className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex items-center justify-between gap-3">
-
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-gray-500 sm:text-sm">
-                    Sedang Dibantu
-                  </p>
-
-                  <p className="mt-1 text-2xl font-bold text-blue-600 sm:mt-2 sm:text-3xl">
-                    {helpedRequests}
-                  </p>
-                </div>
-
-                <div className="shrink-0 rounded-xl bg-blue-100 p-2.5 text-xl sm:p-3 sm:text-2xl">
-                  🤝
-                </div>
-
-              </div>
-            </div>
-
-            {/* SELESAI */}
-            <div className="rounded-2xl border border-green-100 bg-white p-4 shadow-sm sm:p-5">
-              <div className="flex items-center justify-between gap-3">
-
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-gray-500 sm:text-sm">
-                    Selesai
-                  </p>
-
-                  <p className="mt-1 text-2xl font-bold text-green-600 sm:mt-2 sm:text-3xl">
-                    {completedRequests}
-                  </p>
-                </div>
-
-                <div className="shrink-0 rounded-xl bg-green-100 p-2.5 text-xl sm:p-3 sm:text-2xl">
-                  ✅
-                </div>
-
-              </div>
-            </div>
+            <Link
+              href="/minta-bantu"
+              className="inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg font-semibold transition"
+            >
+              + Minta Bantuan
+            </Link>
 
           </div>
 
-          {/* ==========================================
-              PESAN
-          ========================================== */}
+
+          {/* =====================================
+              MESSAGE
+          ====================================== */}
+
           {message && (
-            <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-3 text-center text-sm font-medium text-blue-700 sm:mb-6 sm:p-4">
+            <div className="mb-6 bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-lg">
               {message}
             </div>
           )}
 
-          {/* ==========================================
-              SEARCH + FILTER
-          ========================================== */}
-          <div className="mb-6 rounded-xl border border-blue-100 bg-white p-3 shadow sm:mb-8 sm:p-4">
 
-            <div className="flex flex-col gap-4">
+          {/* =====================================
+              STATISTIK
+          ====================================== */}
 
-              {/* FILTER KATEGORI */}
-              <div className="w-full overflow-x-auto pb-1">
-                <div className="flex w-max gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
 
-                  {categories.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
-                        selectedCategory === category
-                          ? "bg-blue-600 text-white shadow"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
+            {/* TOTAL */}
 
-                </div>
-              </div>
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+
+              <p className="text-gray-500 text-sm">
+                Total Bantuan
+              </p>
+
+              <h2 className="text-3xl font-bold text-gray-800 mt-2">
+                {totalRequests}
+              </h2>
+
+            </div>
+
+
+            {/* MENUNGGU */}
+
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+
+              <p className="text-gray-500 text-sm">
+                Menunggu Bantuan
+              </p>
+
+              <h2 className="text-3xl font-bold text-yellow-600 mt-2">
+                {waitingRequests}
+              </h2>
+
+            </div>
+
+
+            {/* DIBANTU */}
+
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+
+              <p className="text-gray-500 text-sm">
+                Sedang / Sudah Dibantu
+              </p>
+
+              <h2 className="text-3xl font-bold text-green-600 mt-2">
+                {helpingRequests}
+              </h2>
+
+            </div>
+
+          </div>
+
+
+          {/* =====================================
+              FILTER & SEARCH
+          ====================================== */}
+
+          <div className="bg-white rounded-xl shadow-sm border p-5 mb-8">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
               {/* SEARCH */}
-              <div className="relative w-full">
 
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  🔎
-                </span>
+              <div>
+
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cari Bantuan
+                </label>
 
                 <input
                   type="text"
+                  placeholder="Cari judul, deskripsi, atau lokasi..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Cari bantuan..."
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 py-3 pl-10 pr-3 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                  onChange={(e) =>
+                    setSearchTerm(e.target.value)
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
 
               </div>
 
-            </div>
-          </div>
 
-          {/* ==========================================
-              LOADING
-          ========================================== */}
-          {loading ? (
+              {/* CATEGORY */}
 
-            <div className="rounded-xl bg-white p-8 text-center shadow">
-              <p className="text-sm text-gray-600 sm:text-base">
-                Memuat data bantuan...
-              </p>
-            </div>
+              <div>
 
-          ) : filteredRequests.length === 0 ? (
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kategori
+                </label>
 
-            /* TIDAK ADA DATA */
-            <div className="rounded-xl bg-white p-6 text-center shadow sm:p-8">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) =>
+                    setSelectedCategory(e.target.value)
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
 
-              <div className="text-4xl">
-                🔎
+                  {categories.map((category) => (
+                    <option
+                      key={category}
+                      value={category}
+                    >
+                      {category}
+                    </option>
+                  ))}
+
+                </select>
+
               </div>
 
-              <h2 className="mt-3 text-lg font-semibold text-gray-800 sm:text-xl">
-                Tidak ada bantuan
-              </h2>
+            </div>
 
-              <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-600">
-                Tidak ditemukan bantuan yang sesuai dengan pencarian
-                atau kategori yang dipilih.
+          </div>
+
+
+          {/* =====================================
+              JUDUL DAFTAR
+          ====================================== */}
+
+          <div className="flex items-center justify-between mb-4">
+
+            <h2 className="text-xl font-bold text-gray-800">
+              Daftar Bantuan
+            </h2>
+
+            <span className="text-sm text-gray-500">
+              {filteredRequests.length} bantuan ditemukan
+            </span>
+
+          </div>
+
+
+          {/* =====================================
+              DATA KOSONG
+          ====================================== */}
+
+          {filteredRequests.length === 0 ? (
+
+            <div className="bg-white rounded-xl border p-10 text-center">
+
+              <div className="text-5xl mb-4">
+                🤝
+              </div>
+
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                Belum ada bantuan
+              </h3>
+
+              <p className="text-gray-500 mb-5">
+                Belum ada data bantuan yang sesuai
+                dengan pencarian kamu.
               </p>
+
+              <Link
+                href="/minta-bantu"
+                className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-lg font-semibold"
+              >
+                Buat Permintaan Bantuan
+              </Link>
 
             </div>
 
           ) : (
 
-            /* ==========================================
-               DAFTAR BANTUAN
-            ========================================== */
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+            /* =====================================
+               LIST BANTUAN
+            ====================================== */
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
               {filteredRequests.map((request) => (
 
                 <div
                   key={request.id}
-                  className="flex h-full flex-col rounded-xl border border-blue-100 bg-white p-4 shadow transition hover:shadow-lg sm:p-6"
+                  className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition"
                 >
 
-                  {/* JUDUL + STATUS */}
-                  <div className="mb-4 flex items-start justify-between gap-2">
-
-                    <h2 className="min-w-0 break-words text-lg font-bold leading-snug text-gray-900 sm:text-xl">
-                      {request.title}
-                    </h2>
+                  <div className="p-6">
 
                     {/* STATUS */}
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium capitalize sm:px-3 sm:text-xs ${
-                        request.status === "selesai"
-                          ? "bg-green-100 text-green-700"
-                          : request.status === "dibantu"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {request.status}
-                    </span>
 
-                  </div>
+                    <div className="flex items-center justify-between mb-4">
 
-                  {/* DESKRIPSI */}
-                  <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-gray-600 sm:text-base">
-                    {request.description}
-                  </p>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          request.status === "menunggu"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : request.status === "dibantu"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {request.status || "menunggu"}
+                      </span>
 
-                  {/* INFORMASI */}
-                  <div className="space-y-2 text-sm text-gray-700">
+                      <span className="text-xs text-gray-400">
+                        {request.category || "Umum"}
+                      </span>
 
-                    <p className="break-words">
-                      <span className="font-semibold">
-                        Kategori:
-                      </span>{" "}
-                      {request.category}
+                    </div>
+
+
+                    {/* JUDUL */}
+
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">
+                      {request.title}
+                    </h3>
+
+
+                    {/* DESKRIPSI */}
+
+                    <p className="text-gray-600 text-sm line-clamp-3 mb-4">
+                      {request.description}
                     </p>
 
-                    <p className="break-words">
-                      <span className="font-semibold">
-                        Lokasi:
-                      </span>{" "}
-                      {request.location}
-                    </p>
 
-                  </div>
+                    {/* LOKASI */}
 
-                  {/* TOMBOL */}
-                  <div className="mt-auto flex gap-2 pt-5 sm:gap-3">
+                    {request.location && (
 
-                    {/* DETAIL */}
-                    <Link
-                      href={`/bantuan/${request.id}`}
-                      className="flex-1 rounded-lg bg-blue-600 px-3 py-2.5 text-center text-sm font-medium text-white transition hover:bg-blue-700 sm:px-4"
-                    >
-                      Lihat Detail
-                    </Link>
+                      <div className="flex items-start gap-2 text-sm text-gray-500 mb-5">
 
-                    {/* HAPUS */}
-                    <button
-                      onClick={() => handleDelete(request.id)}
-                      disabled={deletingId === request.id}
-                      className="shrink-0 rounded-lg bg-red-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
-                    >
-                      {deletingId === request.id
-                        ? "Menghapus..."
-                        : "Hapus"}
-                    </button>
+                        <span>
+                          📍
+                        </span>
+
+                        <span>
+                          {request.location}
+                        </span>
+
+                      </div>
+
+                    )}
+
+
+                    {/* BUTTON */}
+
+                    <div className="flex gap-2">
+
+                      <Link
+                        href={`/bantuan/${request.id}`}
+                        className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition"
+                      >
+                        Lihat Detail
+                      </Link>
+
+
+                      <button
+                        onClick={() =>
+                          handleDelete(request.id)
+                        }
+                        disabled={
+                          deletingId === request.id
+                        }
+                        className="px-4 py-2.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 font-medium transition disabled:opacity-50"
+                      >
+
+                        {deletingId === request.id
+                          ? "..."
+                          : "Hapus"}
+
+                      </button>
+
+                    </div>
 
                   </div>
 
@@ -423,6 +510,7 @@ export default function DashboardPage() {
           )}
 
         </div>
+
       </main>
     </>
   );
