@@ -170,7 +170,7 @@ export default function Navbar() {
             LOGO
         ================================= */}
         <Link
-          href="/dashboard"
+          href="/"
           className="flex items-center gap-2"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-xl text-white">
