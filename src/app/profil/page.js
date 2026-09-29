@@ -24,9 +24,7 @@ export default function ProfilePage() {
 
     setUser(user);
 
-    const { data, error } = await supabase
-      .from("help_requests")
-      .select("*");
+    const { data, error } = await supabase.from("help_requests").select("*");
 
     if (error) {
       console.error("Gagal mengambil data:", error);
@@ -41,17 +39,14 @@ export default function ProfilePage() {
     getProfileData();
   }, []);
 
-  const myRequests = requests.filter(
-    (request) => request.user_id === user?.id
-  );
+  const myRequests = requests.filter((request) => request.user_id === user?.id);
 
   const helpedRequests = requests.filter(
-    (request) => request.helper_id === user?.id
+    (request) => request.helper_id === user?.id,
   );
 
   const completedRequests = requests.filter(
-    (request) =>
-      request.helper_id === user?.id && request.status === "selesai"
+    (request) => request.helper_id === user?.id && request.status === "selesai",
   );
   if (loading) {
     return (
@@ -100,12 +95,9 @@ export default function ProfilePage() {
 
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-10">
         <div className="mx-auto max-w-4xl">
-
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-blue-900">
-              Profil Saya
-            </h1>
+            <h1 className="text-3xl font-bold text-blue-900">Profil Saya</h1>
 
             <p className="mt-2 text-gray-600">
               Informasi akun dan aktivitas bantuan kamu.
@@ -115,37 +107,26 @@ export default function ProfilePage() {
           {/* Profile Card */}
           <div className="mb-6 rounded-2xl border border-blue-100 bg-white p-6 shadow">
             <div className="flex flex-col items-center gap-4 sm:flex-row">
-
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 text-4xl">
                 👤
               </div>
 
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Warga Bantu
-                </h2>
+                <h2 className="text-xl font-bold text-gray-900">Warga Bantu</h2>
 
-                <p className="mt-1 text-gray-600">
-                  {user.email}
-                </p>
+                <p className="mt-1 text-gray-600">{user.email}</p>
 
-                <p className="mt-1 text-xs text-gray-400">
-                  User ID: {user.id}
-                </p>
+                <p className="mt-1 text-xs text-gray-400">User ID: {user.id}</p>
               </div>
-
             </div>
           </div>
 
           {/* Statistics */}
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
-
             <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow">
               <div className="text-3xl">📋</div>
 
-              <p className="mt-3 text-sm text-gray-500">
-                Bantuan Dibuat
-              </p>
+              <p className="mt-3 text-sm text-gray-500">Bantuan Dibuat</p>
 
               <p className="mt-1 text-3xl font-bold text-blue-700">
                 {myRequests.length}
@@ -155,9 +136,7 @@ export default function ProfilePage() {
             <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow">
               <div className="text-3xl">🤝</div>
 
-              <p className="mt-3 text-sm text-gray-500">
-                Bantuan Dibantu
-              </p>
+              <p className="mt-3 text-sm text-gray-500">Bantuan Dibantu</p>
 
               <p className="mt-1 text-3xl font-bold text-blue-700">
                 {helpedRequests.length}
@@ -167,53 +146,37 @@ export default function ProfilePage() {
             <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow">
               <div className="text-3xl">✅</div>
 
-              <p className="mt-3 text-sm text-gray-500">
-                Bantuan Selesai
-              </p>
+              <p className="mt-3 text-sm text-gray-500">Bantuan Selesai</p>
 
               <p className="mt-1 text-3xl font-bold text-green-600">
                 {completedRequests.length}
               </p>
             </div>
-
           </div>
 
           {/* Account Information */}
           <div className="mb-6 rounded-2xl border border-blue-100 bg-white p-6 shadow">
-
-            <h2 className="text-xl font-bold text-gray-900">
-              Informasi Akun
-            </h2>
+            <h2 className="text-xl font-bold text-gray-900">Informasi Akun</h2>
 
             <div className="mt-5 space-y-4">
-
               <div>
-                <p className="text-sm text-gray-500">
-                  Email
-                </p>
+                <p className="text-sm text-gray-500">Email</p>
 
-                <p className="font-medium text-gray-800">
-                  {user.email}
-                </p>
+                <p className="font-medium text-gray-800">{user.email}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-500">
-                  Bergabung
-                </p>
+                <p className="text-sm text-gray-500">Bergabung</p>
 
                 <p className="font-medium text-gray-800">
                   {new Date(user.created_at).toLocaleDateString("id-ID")}
                 </p>
               </div>
-
             </div>
-
           </div>
 
           {/* Navigation */}
           <div className="flex flex-col gap-3 sm:flex-row">
-
             <Link
               href="/dashboard"
               className="flex-1 rounded-lg bg-blue-600 px-5 py-3 text-center font-medium text-white transition hover:bg-blue-700"
@@ -227,9 +190,7 @@ export default function ProfilePage() {
             >
               📋 Bantuan Saya
             </Link>
-
           </div>
-
         </div>
       </main>
     </>

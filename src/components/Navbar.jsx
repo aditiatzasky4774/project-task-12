@@ -13,6 +13,7 @@ export default function Navbar() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [hideNavbar, setHideNavbar] = useState(false);
 
   useEffect(() => {
   let notificationChannel = null;
@@ -60,6 +61,33 @@ export default function Navbar() {
     }
   };
 }, []);
+
+  // ================================
+  // NAVBAR HIDE / SHOW SAAT SCROLL
+  // ================================
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > lastScrollY && currentScrollY > 80) {
+        // Scroll ke bawah → navbar menghilang
+        setHideNavbar(true);
+      } else {
+        // Scroll ke atas → navbar muncul
+        setHideNavbar(false);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   // ================================
   // LOGOUT
@@ -163,7 +191,11 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
+    <nav
+  className={`sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm transition-transform duration-300 ${
+    hideNavbar ? "-translate-y-full" : "translate-y-0"
+  }`}
+>
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
 
         {/* ================================
@@ -173,18 +205,11 @@ export default function Navbar() {
           href="/"
           className="flex items-center gap-2"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-600 text-xl text-white">
-            🤝
-          </div>
-
           <div>
-            <h1 className="text-lg font-bold text-gray-900">
-              Warga Bantu
+            <h1 className="text-xl font-bold tracking-tight">
+            <span className="text-blue-600">Warga</span>{" "}
+            <span className="text-emerald-500">Bantu</span>
             </h1>
-
-            <p className="text-xs text-gray-500">
-              Papan Bantuan Warga
-            </p>
           </div>
         </Link>
 
