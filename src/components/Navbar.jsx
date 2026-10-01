@@ -230,17 +230,6 @@ export default function Navbar() {
           </Link>
 
           <Link
-            href="/minta-bantu"
-            className={`text-sm font-medium transition ${
-              isActive("/minta-bantu")
-                ? "text-green-600"
-                : "text-gray-600 hover:text-green-600"
-            }`}
-          >
-            Minta Bantuan
-          </Link>
-
-          <Link
             href="/bantuan-saya"
             className={`text-sm font-medium transition ${
               isActive("/bantuan-saya")
