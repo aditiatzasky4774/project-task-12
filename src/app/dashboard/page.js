@@ -11,7 +11,6 @@ export default function DashboardPage() {
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
   const [message, setMessage] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,61 +69,6 @@ export default function DashboardPage() {
     setRequests(data || []);
 
     setLoading(false);
-  };
-
-  // ==========================================
-  // HAPUS BANTUAN
-  // ==========================================
-  const handleDelete = async (id) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // Jika user belum login
-    if (!user) {
-      setMessage("Silakan login terlebih dahulu.");
-
-      router.replace("/login");
-
-      return;
-    }
-
-    // Konfirmasi hapus
-    const confirmDelete = window.confirm(
-      "Apakah kamu yakin ingin menghapus bantuan ini?"
-    );
-
-    if (!confirmDelete) {
-      return;
-    }
-
-    setDeletingId(id);
-    setMessage("");
-
-    const { error } = await supabase
-      .from("help_requests")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id);
-
-    if (error) {
-      console.error("Error menghapus:", error);
-
-      setMessage("Gagal menghapus bantuan.");
-
-      setDeletingId(null);
-
-      return;
-    }
-
-    // Hapus dari tampilan tanpa reload
-    setRequests((prev) =>
-      prev.filter((item) => item.id !== id)
-    );
-
-    setMessage("Bantuan berhasil dihapus.");
-
-    setDeletingId(null);
   };
 
   // ==========================================
@@ -473,31 +417,14 @@ export default function DashboardPage() {
 
                     <div className="flex gap-2">
 
-                      <Link
-                        href={`/bantuan/${request.id}`}
-                        className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition"
-                      >
-                        Lihat Detail
-                      </Link>
+  <Link
+    href={`/bantuan/${request.id}`}
+    className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition"
+  >
+    Lihat Detail
+  </Link>
 
-
-                      <button
-                        onClick={() =>
-                          handleDelete(request.id)
-                        }
-                        disabled={
-                          deletingId === request.id
-                        }
-                        className="px-4 py-2.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 font-medium transition disabled:opacity-50"
-                      >
-
-                        {deletingId === request.id
-                          ? "..."
-                          : "Hapus"}
-
-                      </button>
-
-                    </div>
+</div>
 
                   </div>
 
