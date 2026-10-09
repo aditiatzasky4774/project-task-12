@@ -18,6 +18,31 @@ export default function DetailBantuanPage() {
   const [message, setMessage] = useState("");
 
   // =========================
+// HUBUNGI PEMINTA VIA WHATSAPP
+// =========================
+const handleWhatsApp = () => {
+  if (!request?.whatsapp) {
+    setMessage("Nomor WhatsApp peminta bantuan belum tersedia.");
+    return;
+  }
+
+  // Ubah nomor menjadi format internasional Indonesia
+  let phone = request.whatsapp.replace(/\D/g, "");
+
+  if (phone.startsWith("0")) {
+    phone = "62" + phone.slice(1);
+  } else if (!phone.startsWith("62")) {
+    phone = "62" + phone;
+  }
+
+  const text = `Halo, saya melihat permintaan bantuan "${request.title}" di Papan Bantuan Warga. Saya ingin membicarakannya lebih lanjut.`;
+
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+
+  window.open(url, "_blank", "noopener,noreferrer");
+};
+
+  // =========================
   // MENGAMBIL DATA USER
   // =========================
   const getCurrentUser = async () => {
@@ -367,6 +392,16 @@ export default function DetailBantuanPage() {
                 {request.location}
               </p>
             </div>
+
+            {/* HUBUNGI VIA WHATSAPP */}
+{!isOwner && request.whatsapp && (
+  <button
+    onClick={handleWhatsApp}
+    className="w-full rounded-xl bg-green-600 px-4 py-3.5 font-semibold text-white shadow-md transition hover:bg-green-700"
+  >
+    Hubungi via WhatsApp
+  </button>
+)}
 
             {/* INFORMASI HELPER */}
             {request.status === "dibantu" &&

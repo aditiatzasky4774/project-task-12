@@ -26,6 +26,7 @@ export default function MintaBantuPage() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Medis & Darurat");
   const [location, setLocation] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
 
   // ==============================
   // KOORDINAT PETA
@@ -94,6 +95,7 @@ export default function MintaBantuPage() {
           description,
           category,
           location,
+          whatsapp: whatsapp,
           status: "menunggu",
           user_id: user.id,
 
@@ -245,6 +247,29 @@ export default function MintaBantuPage() {
 
               </div>
 
+{/* NOMOR WHATSAPP */}
+<div>
+  <label
+    htmlFor="whatsapp"
+    className="mb-2 block text-sm font-semibold text-gray-800"
+  >
+    Nomor WhatsApp
+  </label>
+
+  <input
+    type="tel"
+    id="whatsapp"
+    value={whatsapp}
+    onChange={(e) => setWhatsapp(e.target.value)}
+    placeholder="Contoh: 081234567890"
+    required
+    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 outline-none"
+  />
+
+  <p className="mt-1 text-sm text-gray-600">
+    Nomor ini akan digunakan orang lain untuk menghubungi kamu terkait bantuan.
+  </p>
+</div>
 
               {/* ==============================
                   KATEGORI
